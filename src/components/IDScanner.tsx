@@ -1,0 +1,395 @@
+'use client';
+
+import { useState, useRef, useEffect } from 'react';
+import { Camera, X, RotateCcw } from 'lucide-react';
+
+interface IDScannerProps {
+    onClose: () => void;
+    onScanComplete: (data: { name: string; dateOfBirth: string; isAdult?: boolean }) => void;
+}
+
+export default function IDScanner({ onClose, onScanComplete }: IDScannerProps) {
+    const videoRef = useRef<HTMLVideoElement>(null);
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const overlayRef = useRef<HTMLDivElement>(null);
+    const [stream, setStream] = useState<MediaStream | null>(null);
+    const [capturedImage, setCapturedImage] = useState<string | null>(null);
+    const [isProcessing, setIsProcessing] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [attempts, setAttempts] = useState(0);
+
+    // Debug state
+    const [debugInfo, setDebugInfo] = useState<{
+        nameImage?: string;
+        dobImage?: string;
+        debugImage?: string; // New field for visualization
+        nameText?: string;
+        dobText?: string;
+        nameConfidence?: number;
+        dobConfidence?: number;
+        validatedName?: string;
+        validatedDob?: string;
+        step?: string;
+    }>({});
+
+    // Start camera when component mounts
+    useEffect(() => {
+        startCamera();
+        return () => {
+            stopCamera();
+        };
+    }, []);
+
+    const startCamera = async () => {
+        try {
+            const mediaStream = await navigator.mediaDevices.getUserMedia({
+                video: {
+                    facingMode: 'environment',
+                    width: { ideal: 1920 },
+                    height: { ideal: 1080 },
+                },
+            });
+
+            setStream(mediaStream);
+            if (videoRef.current) {
+                videoRef.current.srcObject = mediaStream;
+            }
+            setError(null);
+        } catch (err) {
+            console.error('Camera error:', err);
+            setError('Unable to access camera. Please grant camera permissions.');
+        }
+    };
+
+    const stopCamera = () => {
+        if (stream) {
+            stream.getTracks().forEach((track) => track.stop());
+            setStream(null);
+        }
+    };
+
+    const captureImage = async () => {
+        if (!videoRef.current || !canvasRef.current || !overlayRef.current) return;
+
+        const video = videoRef.current;
+        const canvas = canvasRef.current;
+        const context = canvas.getContext('2d');
+        const overlay = overlayRef.current;
+
+        if (!context) return;
+
+        const videoRect = video.getBoundingClientRect();
+        const overlayRect = overlay.getBoundingClientRect();
+
+        const videoWidth = video.videoWidth;
+        const videoHeight = video.videoHeight;
+        const elementWidth = videoRect.width;
+        const elementHeight = videoRect.height;
+
+        const videoAspect = videoWidth / videoHeight;
+        const elementAspect = elementWidth / elementHeight;
+
+        let scale: number, offsetX: number, offsetY: number;
+
+        if (videoAspect > elementAspect) {
+            scale = videoHeight / elementHeight;
+            const visibleSrcWidth = elementWidth * scale;
+            offsetX = (videoWidth - visibleSrcWidth) / 2;
+            offsetY = 0;
+        } else {
+            scale = videoWidth / elementWidth;
+            const visibleSrcHeight = elementHeight * scale;
+            offsetX = 0;
+            offsetY = (videoHeight - visibleSrcHeight) / 2;
+        }
+
+        const relOverlayX = overlayRect.left - videoRect.left;
+        const relOverlayY = overlayRect.top - videoRect.top;
+
+        const captureX = offsetX + (relOverlayX * scale);
+        const captureY = offsetY + (relOverlayY * scale);
+        const captureW = overlayRect.width * scale;
+        const captureH = overlayRect.height * scale;
+
+        canvas.width = 1024;
+        canvas.height = 640;
+
+        context.drawImage(
+            video,
+            captureX, captureY, captureW, captureH,
+            0, 0, 1024, 640
+        );
+
+        const imageData = canvas.toDataURL('image/jpeg', 0.85);
+        setCapturedImage(imageData);
+
+        stopCamera();
+
+        await processImage(canvas);
+    };
+
+    const processImage = async (canvas: HTMLCanvasElement) => {
+        setIsProcessing(true);
+        setError(null);
+
+        try {
+            setDebugInfo({ step: 'Starting Full Frame OCR pipeline...' });
+            console.log('=== FULL FRAME OCR PIPELINE START ===');
+
+            const { deskewImage, extractROIs } = await import('@/utils/imageProcessing');
+            const { parseIDCardData } = await import('@/utils/idParser');
+
+            const deskewedCanvas = await deskewImage(canvas);
+
+            setDebugInfo({ step: 'Preparing full image for OCR...' });
+            const { fullImage, debugImage } = extractROIs(deskewedCanvas);
+            console.log('🖼️ Full image prepared for OCR');
+            setDebugInfo(prev => ({ ...prev, debugImage }));
+
+            setDebugInfo(prev => ({ ...prev, step: 'Running OCR on full card image...' }));
+
+            // Use Google Cloud Vision API for full frame OCR
+            const { performOCR } = await import('@/utils/ocr');
+
+            const ocrResult = await performOCR(fullImage);
+
+            console.log('📝 Full Frame OCR Result:', {
+                text: ocrResult.text,
+                confidence: ocrResult.confidence,
+                textLength: ocrResult.text.length
+            });
+
+            setDebugInfo(prev => ({
+                ...prev,
+                nameText: ocrResult.text, // Store full text in nameText for debug display
+                nameConfidence: ocrResult.confidence,
+                step: 'Parsing ID card data using spatial analysis...'
+            }));
+
+            // Parse using POSITIONAL data (recommended - uses bounding boxes)
+            const { parseIDCardDataWithPosition } = await import('@/utils/idParser');
+            const parsedData = parseIDCardDataWithPosition(ocrResult.text, ocrResult.textBlocks || []);
+
+            if (!parsedData) {
+                console.error('⚠️ PARSING FAILED: Could not extract name and DOB from text');
+                setDebugInfo(prev => ({ ...prev, step: 'Parsing failed - no valid data found' }));
+                handleScanFailure('Could not find Name and DOB in the scanned text. Please ensure the card is clearly visible.');
+                return;
+            }
+
+            console.log('✅ Parsed Data:', parsedData);
+
+            setDebugInfo(prev => ({
+                ...prev,
+                validatedName: parsedData.name,
+                validatedDob: parsedData.dateOfBirth,
+                step: 'Complete'
+            }));
+
+            // Check confidence threshold (lowered for testing)
+            if (parsedData.confidence > 30) {
+                console.log('✅ SUCCESS - Confidence:', parsedData.confidence);
+                console.log('✅ AGE STATUS:', parsedData.isAdult ? '18+' : 'Under 18');
+
+                // Pass the data including age verification status
+                onScanComplete({
+                    name: parsedData.name,
+                    dateOfBirth: parsedData.dateOfBirth,
+                    isAdult: parsedData.isAdult,
+                });
+            } else {
+                const msg = `OCR Results: Name: "${parsedData.name}", DOB: "${parsedData.dateOfBirth}" (Confidence: ${parsedData.confidence}%). Low confidence.`;
+                console.error('⚠️ LOW CONFIDENCE:', msg);
+                handleScanFailure(msg + ' Check debug panel below.');
+            }
+
+        } catch (err) {
+            console.error('💥 ERROR:', err);
+            setDebugInfo({ step: 'Error: ' + (err instanceof Error ? err.message : 'Unknown') });
+            handleScanFailure('Processing error. Check debug panel.');
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+    const handleScanFailure = (msg?: string) => {
+        const newAttempts = attempts + 1;
+        setAttempts(newAttempts);
+
+        if (newAttempts >= 3) {
+            setError(msg + ' Please enter details manually.');
+            setTimeout(() => {
+                onClose();
+            }, 3000);
+        } else {
+            setError(msg || `Scan failed. Please ensure text is clear. (Attempt ${newAttempts}/3)`);
+            setTimeout(() => {
+                retake();
+            }, 2000);
+        }
+    };
+
+    const retake = () => {
+        setCapturedImage(null);
+        setError(null);
+        startCamera();
+    };
+
+    return (
+        <div className="fixed inset-0 z-50 bg-black">
+            <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between p-4 bg-gradient-to-b from-black/80 to-transparent">
+                <h2 className="text-xl font-bold text-white">Scan ID Card</h2>
+                <button
+                    onClick={onClose}
+                    className="rounded-full bg-white/20 p-2 text-white hover:bg-white/30"
+                >
+                    <X className="h-6 w-6" />
+                </button>
+            </div>
+
+            <div className="relative h-full w-full bg-black flex items-center justify-center">
+                {!capturedImage ? (
+                    <>
+                        <video
+                            ref={videoRef}
+                            autoPlay
+                            playsInline
+                            className="h-full w-full object-cover"
+                        />
+
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                            <div
+                                ref={overlayRef}
+                                className="relative h-[250px] w-[400px] rounded-lg border-2 border-white/50 shadow-[0_0_0_9999px_rgba(0,0,0,0.5)]"
+                            >
+                                <div className="absolute -left-1 -top-1 h-8 w-8 border-l-4 border-t-4 border-white"></div>
+                                <div className="absolute -right-1 -top-1 h-8 w-8 border-r-4 border-t-4 border-white"></div>
+                                <div className="absolute -bottom-1 -left-1 h-8 w-8 border-b-4 border-l-4 border-white"></div>
+                                <div className="absolute -bottom-1 -right-1 h-8 w-8 border-b-4 border-r-4 border-white"></div>
+                                <div className="flex h-full items-center justify-center">
+                                    <p className="text-center text-sm text-white/80 font-medium">
+                                        Align card within frame
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </>
+                ) : (
+                    <img
+                        src={capturedImage}
+                        alt="Captured ID"
+                        className="max-h-full max-w-full object-contain"
+                    />
+                )}
+
+                <canvas ref={canvasRef} className="hidden" />
+            </div>
+
+            {error && (
+                <div className="absolute left-4 right-4 top-20 z-20 rounded-lg bg-red-600 p-4 text-center text-white shadow-lg animate-in fade-in slide-in-from-top-4">
+                    {error}
+                </div>
+            )}
+
+            {isProcessing && (
+                <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+                    <div className="rounded-lg bg-white p-6 text-center shadow-xl">
+                        <div className="mb-4 h-12 w-12 animate-spin rounded-full border-4 border-gray-200 border-t-indigo-600 mx-auto"></div>
+                        <p className="text-lg font-semibold text-gray-900">Processing...</p>
+                        <p className="text-sm text-gray-600">Extracting details</p>
+                    </div>
+                </div>
+            )}
+
+            <div className="absolute bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-black/90 to-transparent p-8">
+                {!capturedImage ? (
+                    <button
+                        onClick={captureImage}
+                        disabled={!stream || isProcessing}
+                        className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-white text-gray-900 shadow-lg hover:bg-gray-100 disabled:opacity-50 ring-4 ring-white/30 transition-all active:scale-95"
+                    >
+                        <Camera className="h-8 w-8" />
+                    </button>
+                ) : (
+                    <div className="flex justify-center gap-4">
+                        <button
+                            onClick={retake}
+                            disabled={isProcessing}
+                            className="flex items-center gap-2 rounded-lg bg-white/20 px-6 py-3 text-white hover:bg-white/30 disabled:opacity-50 backdrop-blur-sm transition-colors"
+                        >
+                            <RotateCcw className="h-5 w-5" />
+                            Retake
+                        </button>
+                        {debugInfo.validatedName && debugInfo.validatedDob && (
+                            <button
+                                onClick={() => {
+                                    onScanComplete({
+                                        name: debugInfo.validatedName!,
+                                        dateOfBirth: debugInfo.validatedDob!,
+                                    });
+                                }}
+                                disabled={isProcessing}
+                                className="flex items-center gap-2 rounded-lg bg-green-600 px-6 py-3 text-white hover:bg-green-700 disabled:opacity-50 transition-colors"
+                            >
+                                ✓ Use Anyway
+                            </button>
+                        )}
+                    </div>
+                )}
+            </div>
+
+            {/* Debug Panel - Show what OCR sees */}
+            {/* COMMENTED OUT - Not visible during processing anyway
+            {capturedImage && (
+                <div className="absolute left-2 right-2 bottom-32 z-20 max-h-96 overflow-y-auto bg-black/95 backdrop-blur-sm p-3 text-white text-xs rounded-lg border border-yellow-500">
+                    <div className="mb-2 font-bold text-yellow-400 text-sm">🔍 DEBUG VISUALIZATION (Full Frame OCR)</div>
+
+                    {debugInfo.debugImage ? (
+                        <div className="mb-3 p-2 bg-gray-900 rounded">
+                            <div className="text-white font-bold mb-1">FULL CARD IMAGE:</div>
+                            <img src={debugInfo.debugImage} alt="Full Card" className="border border-white/50 mb-1 w-full" />
+                            <div className="text-gray-400 text-[10px]">Entire card sent to Google Cloud Vision</div>
+                        </div>
+                    ) : (
+                        <div className="mb-3 p-2 bg-gray-900 rounded text-gray-400">
+                            Waiting for image capture...
+                        </div>
+                    )}
+
+                    {debugInfo.nameText && (
+                        <div className="mb-3 p-2 bg-gray-900 rounded">
+                            <div className="text-green-400 font-bold mb-1">FULL OCR TEXT:</div>
+                            <div className="text-xs text-yellow-300 whitespace-pre-wrap break-all max-h-32 overflow-y-auto border border-gray-700 p-2 rounded bg-black/50">
+                                {debugInfo.nameText}
+                            </div>
+                            <div className="text-gray-400 text-[10px] mt-1">
+                                Confidence: {debugInfo.nameConfidence}% | Length: {debugInfo.nameText.length} chars
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-2">
+                        <div className="p-2 bg-gray-900 rounded">
+                            <div className="text-green-400 font-bold mb-1">PARSED NAME:</div>
+                            <div className="text-yellow-300 break-all">
+                                {debugInfo.validatedName || 'Not found'}
+                            </div>
+                        </div>
+
+                        <div className="p-2 bg-gray-900 rounded">
+                            <div className="text-blue-400 font-bold mb-1">PARSED DOB:</div>
+                            <div className="text-yellow-300 break-all">
+                                {debugInfo.validatedDob || 'Not found'}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="mt-2 text-xs text-gray-400">
+                        Status: {debugInfo.step}
+                    </div>
+                </div>
+            )}
+            */}
+        </div>
+    );
+}

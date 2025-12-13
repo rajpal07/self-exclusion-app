@@ -1,0 +1,20 @@
+{
+    "buildCommand": "npm run build",
+    "devCommand": "npm run dev",
+    "installCommand": "npm install",
+    "framework": "nextjs",
+    "env": {
+        "GOOGLE_CLOUD_VISION_API_KEY": {
+            "description": "Google Cloud Vision API key for OCR functionality",
+            "required": true
+        },
+        "NEXT_PUBLIC_SUPABASE_URL": {
+            "description": "Supabase project URL",
+            "required": true
+        },
+        "NEXT_PUBLIC_SUPABASE_ANON_KEY": {
+            "description": "Supabase anonymous/public key",
+            "required": true
+        }
+    }
+}

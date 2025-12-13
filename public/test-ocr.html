@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>OCR Test Lab</title>
+    <script src='https://unpkg.com/tesseract.js@v2.1.0/dist/tesseract.min.js'></script>
+    <style>
+        body {
+            font-family: sans-serif;
+            padding: 20px;
+            background: #1a1a1a;
+            color: white;
+        }
+
+        .container {
+            display: flex;
+            gap: 20px;
+        }
+
+        .col {
+            flex: 1;
+        }
+
+        img,
+        canvas {
+            border: 1px solid #444;
+            max-width: 100%;
+        }
+
+        .box {
+            background: #333;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+        }
+
+        h3 {
+            margin-top: 0;
+            color: #fbbf24;
+        }
+
+        .success {
+            color: #4ade80;
+        }
+
+        .fail {
+            color: #f87171;
+        }
+
+        pre {
+            background: black;
+            padding: 10px;
+            overflow: auto;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>🧪 OCR Logic Verification</h1>
+    <p>Testing with provided image: <code>test-card.png</code></p>
+
+    <div class="container">
+        <div class="col">
+            <div class="box">
+                <h3>1. Original Input</h3>
+                <img id="source" src="/test-card.png" crossorigin="anonymous" onload="runTest()" />
+            </div>
+        </div>
+        <div class="col">
+            <div class="box">
+                <h3>2. Processed Name ROI</h3>
+                <canvas id="nameCanvas"></canvas>
+                <div id="nameResult">Running OCR...</div>
+            </div>
+            <div class="box">
+                <h3>3. Processed DOB ROI</h3>
+                <canvas id="dobCanvas"></canvas>
+                <div id="dobResult">Running OCR...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function runTest() {
+            const img = document.getElementById('source');
+            const CARD_WIDTH = 1024;
+            const CARD_HEIGHT = 640;
+
+            // Simulate the capture environment
+            // The image might be different size, so we draw it to a standard canvas first
+            const mainCanvas = document.createElement('canvas');
+            mainCanvas.width = CARD_WIDTH;
+            mainCanvas.height = CARD_HEIGHT;
+            const ctx = mainCanvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, CARD_WIDTH, CARD_HEIGHT);
+
+            // --- USE EXACT LOGIC FROM imageProcessing.ts ---
+
+            // ROI Calculation - UPDATED
+            const nameX = Math.floor(0.03 * CARD_WIDTH);  // Adjusted
+            const nameY = Math.floor(0.19 * CARD_HEIGHT);  // Adjusted
+            const nameW = Math.floor(0.45 * CARD_WIDTH);  // Adjusted
+            const nameH = Math.floor(0.06 * CARD_HEIGHT);  // Adjusted
+
+            const dobX = Math.floor(0.38 * CARD_WIDTH);
+            const dobY = Math.floor(0.52 * CARD_HEIGHT);
+            const dobW = Math.floor(0.25 * CARD_WIDTH);
+            const dobH = Math.floor(0.07 * CARD_HEIGHT);
+
+            // Process Name
+            processROI('nameCanvas', 'nameResult', mainCanvas, nameX, nameY, nameW, nameH);
+
+            // Process DOB
+            processROI('dobCanvas', 'dobResult', mainCanvas, dobX, dobY, dobW, dobH);
+        }
+
+        async function processROI(canvasId, resultId, sourceCanvas, x, y, w, h) {
+            const canvas = document.getElementById(canvasId);
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d');
+
+            // 1. Draw original crop
+            ctx.drawImage(sourceCanvas, x, y, w, h, 0, 0, w, h);
+
+            // 2. Apply Binarization with threshold 140
+            const imageData = ctx.getImageData(0, 0, w, h);
+            const data = imageData.data;
+            const threshold = 140;  // Updated from 160
+
+            for (let i = 0; i < data.length; i += 4) {
+                const r = data[i];
+                const g = data[i + 1];
+                const b = data[i + 2];
+                const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+                const val = gray < threshold ? 0 : 255;
+                data[i] = val;
+                data[i + 1] = val;
+                data[i + 2] = val;
+            }
+            ctx.putImageData(imageData, 0, 0);
+
+            // 3. Upscale 2x
+            const scale = 2;
+            const upscaled = document.createElement('canvas');
+            upscaled.width = w * scale;
+            upscaled.height = h * scale;
+            const upCtx = upscaled.getContext('2d');
+            upCtx.imageSmoothingEnabled = false;
+            upCtx.drawImage(canvas, 0, 0, upscaled.width, upscaled.height);
+
+            // Update display canvas
+            canvas.width = upscaled.width;
+            canvas.height = upscaled.height;
+            canvas.getContext('2d').drawImage(upscaled, 0, 0);
+
+            // 4. Run OCR with better config
+            try {
+                const result = await Tesseract.recognize(upscaled, 'eng', {
+                    tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-/ ',
+                    tessedit_pageseg_mode: Tesseract.PSM.SINGLE_LINE
+                });
+                const text = result.data.text.trim();
+                const conf = result.data.confidence.toFixed(1);
+
+                document.getElementById(resultId).innerHTML = `
+                    <div style="font-size: 24px; font-weight: bold;">"${text}"</div>
+                    <div>Confidence: ${conf}%</div>
+                `;
+            } catch (e) {
+                document.getElementById(resultId).innerText = "Error: " + e.message;
+            }
+        }
+    </script>
+</body>
+
+</html>
