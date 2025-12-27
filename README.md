@@ -1,42 +1,64 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Self-Exclusion App
+
+A Next.js application for managing self-exclusion lists and scanning ID cards to verify patron entry eligibility.
+
+## Features
+
+- **ID Scanning**: Automatically extracts Name, Date of Birth, and ID Number from ID card images.
+- **AI-Powered OCR**: Integrates **Groq's Llama 4 Scout** (`meta-llama/llama-4-scout-17b-16e-instruct`) for high-accuracy, privacy-focused text extraction.
+- **Age Verification**: Automatically flags underage patrons based on DOB.
+- **Exclusion Management**: Checks scanned IDs against a central self-exclusion database.
+- **Role-Based Access**: Secure login and management for staff.
+
+## Technology Stack
+
+- **Framework**: Next.js 16 (App Router)
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS
+- **Backend/Auth**: Supabase
+- **OCR/AI**: Groq API (Llama 4 Vision)
 
 ## Getting Started
 
-First, run the development server:
+1.  **Clone the repository:**
+    ```bash
+    git clone https://github.com/rajpal07/self-exclusion-app.git
+    cd self-exclusion-app
+    ```
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+2.  **Install dependencies:**
+    ```bash
+    npm install
+    ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+3.  **Configure Environment Variables:**
+    Create a `.env.local` file in the root directory and add the following keys:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+    ```env
+    # Supabase Configuration
+    NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+    NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+    # Groq API Configuration (for OCR)
+    GROQ_API_KEY=gsk_... # Your Groq API Key
+    ```
 
-## Learn More
+4.  **Run the development server:**
+    ```bash
+    npm run dev
+    ```
 
-To learn more about Next.js, take a look at the following resources:
+    Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Usage
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1.  Log in with authorized credentials.
+2.  Navigate to the "Add Patron" or "Scan ID" section.
+3.  Use the camera to capture an ID card image.
+4.  The system will process the image using Groq AI and display the extracted details for review.
+5.  Confirm the details to check for exclusions or add a new entry.
 
-## Deploy on Vercel
+## Deployment
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-
-
-
-notes :
-- develop a model to scan license deep reseacrh on it 
-- remove add patreon scan button , manual process
+This project is optimized for deployment on [Vercel](https://vercel.com).
+Ensure all environment variables are correctly set in the Vercel project settings.
