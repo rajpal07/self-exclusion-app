@@ -59,9 +59,9 @@ export async function POST(req: NextRequest) {
                     ],
                 },
             ],
-            model: 'llama-3.2-90b-vision-preview',
-            temperature: 0.1, // Low temperature for deterministic output
-            max_tokens: 512,
+            model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+            // temperature: 0.1, // Low temperature for deterministic output
+            // max_tokens: 512,
             top_p: 1,
             stream: false,
             response_format: { type: 'json_object' },
