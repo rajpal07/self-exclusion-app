@@ -39,6 +39,10 @@ export default function SearchForm() {
     }, [])
 
     const handleScanComplete = (data: { name: string; dateOfBirth: string; isAdult?: boolean }) => {
+        // Clear previous search results when a new scan happens
+        setSearched(false)
+        setResult(null)
+
         setName(data.name)
         setDob(data.dateOfBirth)
         setAgeVerified(data.isAdult ?? null)
@@ -63,10 +67,22 @@ export default function SearchForm() {
             .eq('dob', dob)
             .maybeSingle()
 
+        let activeExclusion = data
+
+        if (data && data.expiry_date) {
+            const expiryDate = new Date(data.expiry_date)
+            const today = new Date()
+
+            // additional check: if expiry date is in the past, they are no longer excluded
+            if (expiryDate < today) {
+                activeExclusion = null
+            }
+        }
+
         if (error) {
             console.error(error)
         } else {
-            setResult(data)
+            setResult(activeExclusion)
         }
 
         const { data: { user } } = await supabase.auth.getUser()
@@ -74,7 +90,7 @@ export default function SearchForm() {
             await supabase.from('audit_logs').insert({
                 user_id: user.id,
                 role: 'USER',
-                action: data ? 'Searched patron (Found)' : 'Searched patron (Not Found)',
+                action: activeExclusion ? 'Searched patron (Found)' : 'Searched patron (Not Found)',
                 details: `Name: ${name}, DOB: ${dob}`
             })
         }
@@ -127,7 +143,13 @@ export default function SearchForm() {
                             id="search-name"
                             type="text"
                             value={name}
-                            onChange={(e) => setName(e.target.value)}
+                            onChange={(e) => {
+                                setName(e.target.value)
+                                // Clear verifications when manually editing
+                                setAgeVerified(null)
+                                setSearched(false)
+                                setResult(null)
+                            }}
                             placeholder="Enter full name"
                             required
                             className="h-11 border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all"
@@ -140,7 +162,13 @@ export default function SearchForm() {
                             id="search-dob"
                             type="date"
                             value={dob}
-                            onChange={(e) => setDob(e.target.value)}
+                            onChange={(e) => {
+                                setDob(e.target.value)
+                                // Clear verifications when manually editing
+                                setAgeVerified(null)
+                                setSearched(false)
+                                setResult(null)
+                            }}
                             required
                             className="h-11 border-gray-200 text-gray-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all"
                         />
