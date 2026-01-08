@@ -60,6 +60,8 @@ export default function SearchForm() {
             return
         }
 
+        console.log('Searching for:', { name, dob })
+
         const { data, error } = await supabase
             .from('excluded_persons')
             .select('*')
@@ -69,14 +71,22 @@ export default function SearchForm() {
 
         let activeExclusion = data
 
-        if (data && data.expiry_date) {
-            const expiryDate = new Date(data.expiry_date)
-            const today = new Date()
+        if (data) {
+            console.log('Found record:', data)
+            if (data.expiry_date) {
+                const expiryDate = new Date(data.expiry_date)
+                const today = new Date()
 
-            // additional check: if expiry date is in the past, they are no longer excluded
-            if (expiryDate < today) {
-                activeExclusion = null
+                console.log('Date Check:', { expiryDate, today, isExpired: expiryDate < today })
+
+                // additional check: if expiry date is in the past, they are no longer excluded
+                if (expiryDate < today) {
+                    console.log('Marking as expired/null')
+                    activeExclusion = null
+                }
             }
+        } else {
+            console.log('No record found in database for these details.')
         }
 
         if (error) {
@@ -183,62 +193,49 @@ export default function SearchForm() {
                     </Button>
                 </form>
 
+                {/* Unified Result Display - Only show after search/check button is clicked */}
                 {searched && (
-                    <Alert className={result ? 'bg-red-50 border-red-200 shadow-sm' : 'bg-green-50 border-green-200 shadow-sm'}>
+                    <Alert className={`
+                        ${(result || ageVerified === false) ? 'bg-red-50 border-red-200 shadow-sm' : 'bg-green-50 border-green-200 shadow-sm'}
+                    `}>
                         <div className="flex items-start gap-3">
-                            {result ? (
+                            {(result || ageVerified === false) ? (
                                 <XCircle className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
                             ) : (
                                 <CheckCircle className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
                             )}
                             <div className="flex-1 min-w-0">
-                                <AlertTitle className={`text-sm font-semibold ${result ? 'text-red-800' : 'text-green-800'}`}>
-                                    {result ? 'Patron Excluded' : 'Not on the list'}
+                                <AlertTitle className={`text-sm font-semibold ${(result || ageVerified === false) ? 'text-red-800' : 'text-green-800'}`}>
+                                    {result ? 'ENTRY DENIED: Patron Excluded' :
+                                        ageVerified === false ? 'ENTRY DENIED: Underage' :
+                                            'ENTRY ALLOWED'}
                                 </AlertTitle>
-                                {result ? (
-                                    <AlertDescription className="text-sm text-red-700 mt-1 space-y-0.5">
-                                        <p><span className="font-medium">ID:</span> {result.patron_id}</p>
-                                        <p><span className="font-medium">Name:</span> {result.name}</p>
-                                        <p><span className="font-medium">Expiry:</span> {result.expiry_date}</p>
-                                    </AlertDescription>
-                                ) : (
-                                    <AlertDescription className="text-sm text-green-700 mt-1">
-                                        Good to go!
-                                    </AlertDescription>
-                                )}
-                            </div>
-                        </div>
-                    </Alert>
-                )}
 
-                {/* Age Verification Notification */}
-                {ageVerified === true && (
-                    <Alert className="bg-green-50 border-green-200 shadow-sm">
-                        <div className="flex items-start gap-3">
-                            <CheckCircle className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
-                            <div className="flex-1 min-w-0">
-                                <AlertTitle className="text-sm font-semibold text-green-800">
-                                    18+
-                                </AlertTitle>
-                                <AlertDescription className="text-sm text-green-700 mt-1 break-words">
-                                    Good to go!
-                                </AlertDescription>
-                            </div>
-                        </div>
-                    </Alert>
-                )}
+                                <div className="mt-2 space-y-2">
+                                    {/* Exclusion Details */}
+                                    {result ? (
+                                        <div className="text-sm text-red-700 bg-red-100/50 p-2 rounded border border-red-100">
+                                            <p className="font-bold mb-1">Self-Exclusion Match:</p>
+                                            <p><span className="font-medium">ID:</span> {result.patron_id}</p>
+                                            <p><span className="font-medium">Name:</span> {result.name}</p>
+                                            <p><span className="font-medium">Expiry:</span> {result.expiry_date}</p>
+                                        </div>
+                                    ) : searched && (
+                                        <p className="text-sm text-green-700">
+                                            No active exclusion found.
+                                        </p>
+                                    )}
 
-                {ageVerified === false && (
-                    <Alert className="bg-red-50 border-red-200 shadow-sm">
-                        <div className="flex items-start gap-3">
-                            <XCircle className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
-                            <div className="flex-1 min-w-0">
-                                <AlertTitle className="text-sm font-semibold text-red-800">
-                                    18+
-                                </AlertTitle>
-                                <AlertDescription className="text-sm text-red-700 mt-1 break-words">
-                                    Not found
-                                </AlertDescription>
+                                    {/* Age Verification Details */}
+                                    {ageVerified !== null && (
+                                        <div className={`text-sm p-2 rounded border ${ageVerified ? 'bg-green-100/50 border-green-100 text-green-700' : 'bg-red-100/50 border-red-100 text-red-700'}`}>
+                                            <p className="font-bold mb-1">Age Verification:</p>
+                                            <p>
+                                                {ageVerified ? 'User is 18+ (Adult)' : 'User is UNDERAGE'}
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </Alert>
