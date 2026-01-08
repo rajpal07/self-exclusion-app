@@ -67,23 +67,29 @@ export default function SearchForm() {
             .select('*')
             .ilike('name', name)
             .eq('dob', dob)
-            .maybeSingle()
 
-        let activeExclusion = data
+        let activeExclusion = null
 
-        if (data) {
-            console.log('Found record:', data)
-            if (data.expiry_date) {
-                const expiryDate = new Date(data.expiry_date)
-                const today = new Date()
+        if (data && data.length > 0) {
+            console.log('Found records:', data)
 
-                console.log('Date Check:', { expiryDate, today, isExpired: expiryDate < today })
+            // Find the first record that is NOT expired
+            const today = new Date()
 
-                // additional check: if expiry date is in the past, they are no longer excluded
-                if (expiryDate < today) {
-                    console.log('Marking as expired/null')
-                    activeExclusion = null
-                }
+            // Sort by expiry date descending (furthest expiry first) to be safe, though .find finds the first one
+            // We want to find ANY active exclusion.
+            const validRecord = data.find(record => {
+                if (!record.expiry_date) return true // No expiry = permanent/active
+                const expiryDate = new Date(record.expiry_date)
+                const isExpired = expiryDate < today
+                return !isExpired
+            })
+
+            if (validRecord) {
+                console.log('Found ACTIVE exclusion:', validRecord)
+                activeExclusion = validRecord
+            } else {
+                console.log('All found records are expired.')
             }
         } else {
             console.log('No record found in database for these details.')
@@ -204,21 +210,23 @@ export default function SearchForm() {
                             ) : (
                                 <CheckCircle className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
                             )}
-                            <div className="flex-1 min-w-0">
+                            <div className="flex-1 min-w-0 w-full">
                                 <AlertTitle className={`text-sm font-semibold ${(result || ageVerified === false) ? 'text-red-800' : 'text-green-800'}`}>
                                     {result ? 'ENTRY DENIED: Patron Excluded' :
                                         ageVerified === false ? 'ENTRY DENIED: Underage' :
                                             'ENTRY ALLOWED'}
                                 </AlertTitle>
 
-                                <div className="mt-2 space-y-2">
+                                <div className="mt-2 space-y-2 w-full">
                                     {/* Exclusion Details */}
                                     {result ? (
-                                        <div className="text-sm text-red-700 bg-red-100/50 p-2 rounded border border-red-100">
-                                            <p className="font-bold mb-1">Self-Exclusion Match:</p>
-                                            <p><span className="font-medium">ID:</span> {result.patron_id}</p>
-                                            <p><span className="font-medium">Name:</span> {result.name}</p>
-                                            <p><span className="font-medium">Expiry:</span> {result.expiry_date}</p>
+                                        <div className="text-sm text-red-700 bg-red-100/50 p-2 rounded border border-red-100 w-full">
+                                            <p className="font-bold mb-1 text-xs uppercase tracking-wide opacity-80">Self-Exclusion Match</p>
+                                            <div className="grid grid-cols-[auto,1fr] gap-x-2 gap-y-1">
+                                                <span className="font-medium">ID:</span> <span>{result.patron_id}</span>
+                                                <span className="font-medium">Name:</span> <span>{result.name}</span>
+                                                <span className="font-medium">Expiry:</span> <span>{result.expiry_date}</span>
+                                            </div>
                                         </div>
                                     ) : searched && (
                                         <p className="text-sm text-green-700">
@@ -228,10 +236,12 @@ export default function SearchForm() {
 
                                     {/* Age Verification Details */}
                                     {ageVerified !== null && (
-                                        <div className={`text-sm p-2 rounded border ${ageVerified ? 'bg-green-100/50 border-green-100 text-green-700' : 'bg-red-100/50 border-red-100 text-red-700'}`}>
-                                            <p className="font-bold mb-1">Age Verification:</p>
-                                            <p>
-                                                {ageVerified ? 'User is 18+ (Adult)' : 'User is UNDERAGE'}
+                                        <div className={`text-sm p-2 rounded border w-full ${ageVerified ? 'bg-green-100/50 border-green-100 text-green-700' : 'bg-red-100/50 border-red-100 text-red-700'}`}>
+                                            <p className="flex flex-wrap items-center gap-1">
+                                                <span className="font-bold">Age Verification:</span>
+                                                <span>
+                                                    {ageVerified ? 'User is 18+ (Adult)' : 'User is UNDERAGE'}
+                                                </span>
                                             </p>
                                         </div>
                                     )}
