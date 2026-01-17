@@ -164,50 +164,42 @@ export default function SearchForm() {
                 </form>
 
                 {searched && (
-                    <div className={`rounded-lg border p-4 ${result || ageVerified === false
-                        ? 'bg-red-50 border-red-200'
-                        : 'bg-green-50 border-green-200'
-                        }`}>
-                        <div className="flex items-start gap-3">
-                            {result || ageVerified === false ? (
-                                <XCircle className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
+                    <div className="flex-1 space-y-3">
+                        {/* Status 1: Exclusion Check */}
+                        <div className={`flex items-start gap-2 text-sm rounded-md p-3 ${result ? 'bg-red-50 text-red-800 border border-red-200' : 'bg-green-50 text-green-800 border border-green-200'
+                            }`}>
+                            {result ? (
+                                <XCircle className="h-5 w-5 flex-shrink-0 text-red-600" />
                             ) : (
-                                <CheckCircle className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
+                                <CheckCircle className="h-5 w-5 flex-shrink-0 text-green-600" />
                             )}
                             <div className="flex-1">
-                                <div className={`text-base font-bold mb-1 ${result || ageVerified === false ? 'text-red-800' : 'text-green-800'
-                                    }`}>
-                                    {result ? (
-                                        'Patron Excluded'
-                                    ) : ageVerified === true ? (
-                                        '18+'
-                                    ) : ageVerified === false ? (
-                                        'Under 18'
-                                    ) : (
-                                        'Not on the list'
-                                    )}
-                                </div>
-
-                                {/* Middle status line - only for 18+ cases */}
-                                {ageVerified === true && (
-                                    <div className={`text-sm font-medium mt-0.5 ${result ? 'text-red-700' : 'text-green-700'
-                                        }`}>
-                                        {result ? 'On list' : 'Not on list'}
+                                <p className="font-bold">{result ? 'Patron Excluded' : 'Not on Exclusion List'}</p>
+                                {result && (
+                                    <div className="mt-1 text-xs space-y-0.5 opacity-90">
+                                        <p><span className="font-semibold">ID:</span> {result.patron_id}</p>
+                                        <p><span className="font-semibold">Name:</span> {result.name}</p>
+                                        <p><span className="font-semibold">Expiry:</span> {result.expiry_date}</p>
                                     </div>
                                 )}
+                            </div>
+                        </div>
 
-                                {result ? (
-                                    <div className="text-sm text-red-700 space-y-0.5">
-                                        <p><span className="font-medium">ID:</span> {result.patron_id}</p>
-                                        <p><span className="font-medium">Name:</span> {result.name}</p>
-                                        <p><span className="font-medium">Expiry:</span> {result.expiry_date}</p>
-                                    </div>
-                                ) : (
-                                    <div className={`text-sm ${ageVerified === false ? 'text-red-700' : 'text-green-700'
-                                        }`}>
-                                        {ageVerified === false ? 'Age verification failed' : 'Good to go!'}
-                                    </div>
-                                )}
+                        {/* Status 2: Age Check */}
+                        <div className={`flex items-start gap-2 text-sm rounded-md p-3 ${ageVerified === false ? 'bg-red-50 text-red-800 border border-red-200' : 'bg-green-50 text-green-800 border border-green-200'
+                            }`}>
+                            {ageVerified === false ? (
+                                <XCircle className="h-5 w-5 flex-shrink-0 text-red-600" />
+                            ) : (
+                                <CheckCircle className="h-5 w-5 flex-shrink-0 text-green-600" />
+                            )}
+                            <div className="flex-1">
+                                <p className="font-bold">
+                                    {ageVerified === true ? 'Age Verified: 18+' : 'Under 18 / Verification Failed'}
+                                </p>
+                                <p className="text-xs opacity-90 mt-0.5">
+                                    {ageVerified === true ? 'Allowed to enter (if not excluded)' : 'Entry Denied due to Age'}
+                                </p>
                             </div>
                         </div>
                     </div>
