@@ -46,8 +46,8 @@ export default async function Dashboard() {
 
   const today = new Date().toISOString().split('T')[0]
 
-  const active = exclusions?.filter(p => p.expiry_date >= today) || []
-  const expired = exclusions?.filter(p => p.expiry_date < today) || []
+  const active = exclusions?.filter(p => new Date(p.expiry_date).toISOString().split('T')[0] >= today) || []
+  const expired = exclusions?.filter(p => new Date(p.expiry_date).toISOString().split('T')[0] < today) || []
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50/50 via-white to-purple-50/50">
