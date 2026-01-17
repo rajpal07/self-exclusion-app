@@ -175,14 +175,10 @@ export default function SearchForm() {
                                 <CheckCircle className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
                             )}
                             <div className="flex-1">
-                                <div className={`text-base font-bold mb-1 ${result && new Date(result.expiry_date) >= new Date()
-                                        ? 'text-red-800'
-                                        : (ageVerified === false ? 'text-red-800' : 'text-green-800')
+                                <div className={`text-base font-bold mb-1 ${result || ageVerified === false ? 'text-red-800' : 'text-green-800'
                                     }`}>
                                     {result ? (
-                                        new Date(result.expiry_date) >= new Date()
-                                            ? 'Patron Excluded'
-                                            : 'Past Exclusion (Expired)'
+                                        'Patron Excluded'
                                     ) : ageVerified === true ? (
                                         '18+'
                                     ) : ageVerified === false ? (
@@ -194,15 +190,9 @@ export default function SearchForm() {
 
                                 {/* Middle status line - only for 18+ cases */}
                                 {ageVerified === true && (
-                                    <div className={`text-sm font-medium mt-0.5 ${result && new Date(result.expiry_date) >= new Date()
-                                            ? 'text-red-700'
-                                            : 'text-green-700'
+                                    <div className={`text-sm font-medium mt-0.5 ${result ? 'text-red-700' : 'text-green-700'
                                         }`}>
-                                        {result && new Date(result.expiry_date) >= new Date()
-                                            ? 'On list (Active)'
-                                            : result
-                                                ? 'On list (Expired - Allowed)'
-                                                : 'Not on list'}
+                                        {result ? 'On list' : 'Not on list'}
                                     </div>
                                 )}
 
