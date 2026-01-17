@@ -22,6 +22,16 @@ export async function addPatron(formData: {
     const { patron_id, name, dob, expiry_date } = formData
 
     try {
+        // Check for existing patron
+        const existing = await db.query(
+            'SELECT id FROM excluded_persons WHERE (name ILIKE $1 AND dob = $2) OR patron_id = $3 LIMIT 1',
+            [name, dob, patron_id]
+        )
+
+        if (existing.rows.length > 0) {
+            return { error: 'Patron already exists (matching ID or Name+DOB)' }
+        }
+
         await db.query(
             'INSERT INTO excluded_persons (patron_id, name, dob, expiry_date) VALUES ($1, $2, $3, $4)',
             [patron_id, name, dob, expiry_date]
