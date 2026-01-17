@@ -1,4 +1,6 @@
-import { createClient } from '@/utils/supabase/server'
+import { auth } from '@/lib/auth'
+import { db } from '@/lib/auth'
+import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import Header from '@/components/Header'
 import SearchForm from '@/components/SearchForm'
@@ -6,28 +8,41 @@ import AddPatronForm from '@/components/AddPatronForm'
 import ExclusionList from '@/components/ExclusionList'
 
 export default async function Dashboard() {
-  const supabase = await createClient()
+  const session = await auth.api.getSession({
+    headers: await headers()
+  })
 
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = session?.user
 
   if (!user) {
     redirect('/login')
   }
 
   // Fetch profile for role
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
+  // Note: New Better Auth users might not have a profile row in 'profiles' unless we created one on signup.
+  // The signup action implementation (to be checked) should handle this, or we default to USER.
+  let role = 'USER'
 
-  const role = profile?.role || 'USER'
+  // We need to check if profiles table uses uuid matching Better Auth id.
+  // Assuming 'profiles' table exists and links to user id.
+  try {
+    const profileResult = await db.query('SELECT role FROM profiles WHERE id = $1', [user.id])
+    if (profileResult.rows.length > 0) {
+      role = profileResult.rows[0].role
+    }
+  } catch (e) {
+    console.error("Failed to fetch profile", e)
+    // Fallback or ignore if table structure mismatch pending migration
+  }
 
   // Fetch exclusions
-  const { data: exclusions } = await supabase
-    .from('excluded_persons')
-    .select('*')
-    .order('added_date', { ascending: false })
+  let exclusions: any[] = []
+  try {
+    const exclusionsResult = await db.query('SELECT * FROM excluded_persons ORDER BY added_date DESC')
+    exclusions = exclusionsResult.rows
+  } catch (e) {
+    console.error("Failed to fetch exclusions", e)
+  }
 
   const today = new Date().toISOString().split('T')[0]
 

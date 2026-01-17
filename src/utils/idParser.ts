@@ -247,7 +247,7 @@ function extractName(lines: string[]): ParseResult {
         'LICENSE NUMBER',
         'LICENCE NUMBER',
         'LICENSE NO.',
-        'LICENCE NO.',
+        'LICENCE NO',
         'DATE OF BIRTH',
         'EXPIRY DATE',
         'ISSUE DATE',

@@ -1,9 +1,9 @@
 'use client';
 
-import { login, signup } from './actions';
-import { useSearchParams } from 'next/navigation';
-import { Mail, Lock, Shield } from 'lucide-react';
-import { Suspense } from 'react';
+import { authClient } from '@/lib/auth-client';
+import { useRouter } from 'next/navigation';
+import { Mail, Lock, Shield, Loader2 } from 'lucide-react';
+import { useState, Suspense } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,8 +11,49 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 function LoginForm() {
-    const searchParams = useSearchParams();
-    const error = searchParams.get('error');
+    const router = useRouter();
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    const handleLogin = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setLoading(true);
+        setError(null);
+        await authClient.signIn.email({
+            email,
+            password,
+        }, {
+            onSuccess: () => {
+                router.push('/');
+                router.refresh();
+            },
+            onError: (ctx) => {
+                setError(ctx.error.message);
+                setLoading(false);
+            }
+        });
+    };
+
+    const handleSignup = async () => {
+        setLoading(true);
+        setError(null);
+        await authClient.signUp.email({
+            email,
+            password,
+            name: email.split('@')[0], // Default name
+        }, {
+            onSuccess: () => {
+                router.push('/');
+                router.refresh();
+            },
+            onError: (ctx) => {
+                setError(ctx.error.message);
+                setLoading(false);
+            }
+        });
+    };
 
     return (
         <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50 px-4 py-8 relative overflow-hidden">
@@ -50,13 +91,13 @@ function LoginForm() {
                         {error && (
                             <Alert variant="destructive" className="bg-red-50 border-red-200 shadow-sm">
                                 <AlertDescription className="text-sm text-red-800">
-                                    {decodeURIComponent(error)}
+                                    {error}
                                 </AlertDescription>
                             </Alert>
                         )}
 
                         {/* Form */}
-                        <form className="space-y-4">
+                        <form onSubmit={handleLogin} className="space-y-4">
                             {/* Email Input */}
                             <div className="space-y-2">
                                 <Label htmlFor="email-address" className="text-sm font-medium text-gray-700">
@@ -72,6 +113,8 @@ function LoginForm() {
                                         type="email"
                                         autoComplete="email"
                                         required
+                                        value={email}
+                                        onChange={(e) => setEmail(e.target.value)}
                                         className="h-12 pl-10 border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all bg-white/50"
                                         placeholder="you@example.com"
                                     />
@@ -93,6 +136,8 @@ function LoginForm() {
                                         type="password"
                                         autoComplete="current-password"
                                         required
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
                                         className="h-12 pl-10 border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all bg-white/50"
                                         placeholder="Enter your password"
                                     />
@@ -102,13 +147,16 @@ function LoginForm() {
                             {/* Buttons */}
                             <div className="space-y-3 pt-2">
                                 <Button
-                                    formAction={login}
+                                    type="submit"
+                                    disabled={loading}
                                     className="w-full h-12 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold rounded-lg shadow-lg shadow-indigo-500/30 transition-all duration-200 hover:shadow-xl hover:shadow-indigo-500/40 hover:-translate-y-0.5"
                                 >
-                                    Sign In
+                                    {loading ? <Loader2 className="animate-spin h-5 w-5" /> : 'Sign In'}
                                 </Button>
                                 <Button
-                                    formAction={signup}
+                                    type="button"
+                                    onClick={handleSignup}
+                                    disabled={loading}
                                     variant="outline"
                                     className="w-full h-12 border-2 border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 font-semibold rounded-lg transition-all duration-200"
                                 >
@@ -162,3 +210,4 @@ export default function LoginPage() {
         </Suspense>
     );
 }
+

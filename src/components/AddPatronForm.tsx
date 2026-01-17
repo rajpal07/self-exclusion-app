@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { createClient } from '@/utils/supabase/client'
+import { addPatron } from '@/app/actions'
 import { UserPlus } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -20,33 +20,19 @@ export default function AddPatronForm() {
     const [loading, setLoading] = useState(false)
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
     const router = useRouter()
-    const supabase = createClient()
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         setLoading(true)
         setMessage(null)
 
-        const { error } = await supabase
-            .from('excluded_persons')
-            .insert([formData])
+        const result = await addPatron(formData)
 
-        if (error) {
-            setMessage({ type: 'error', text: error.message })
+        if (result.error) {
+            setMessage({ type: 'error', text: result.error })
         } else {
             setMessage({ type: 'success', text: 'Patron added successfully' })
             setFormData({ patron_id: '', name: '', dob: '', expiry_date: '' })
-
-            const { data: { user } } = await supabase.auth.getUser()
-            if (user) {
-                await supabase.from('audit_logs').insert({
-                    user_id: user.id,
-                    role: 'USER',
-                    action: 'Added new patron',
-                    details: `ID: ${formData.patron_id}, Name: ${formData.name}`
-                })
-            }
-
             router.refresh()
         }
         setLoading(false)

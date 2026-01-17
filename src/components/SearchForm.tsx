@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClient } from '@/utils/supabase/client'
+import { searchPatron } from '@/app/actions'
 import { Search, CheckCircle, XCircle, Camera } from 'lucide-react'
 import dynamic from 'next/dynamic'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -25,7 +25,7 @@ export default function SearchForm() {
     const [ageVerified, setAgeVerified] = useState<boolean | null>(null)
     const [calculatedAge, setCalculatedAge] = useState<number | null>(null)
 
-    const supabase = createClient()
+
 
     // Check if camera is available
     useEffect(() => {
@@ -78,27 +78,13 @@ export default function SearchForm() {
         setAgeVerified(isAdult);
         console.log('[AGE_CALC] Setting ageVerified to:', isAdult);
 
-        const { data, error } = await supabase
-            .from('excluded_persons')
-            .select('*')
-            .ilike('name', name)
-            .eq('dob', dob)
-            .maybeSingle()
+        // Call Server Action
+        const res = await searchPatron(name, dob)
 
-        if (error) {
-            console.error(error)
+        if (res.error) {
+            console.error(res.error)
         } else {
-            setResult(data)
-        }
-
-        const { data: { user } } = await supabase.auth.getUser()
-        if (user) {
-            await supabase.from('audit_logs').insert({
-                user_id: user.id,
-                role: 'USER',
-                action: data ? 'Searched patron (Found)' : 'Searched patron (Not Found)',
-                details: `Name: ${name}, DOB: ${dob}`
-            })
+            setResult(res.data)
         }
 
         setSearched(true)

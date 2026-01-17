@@ -1,34 +1,45 @@
-import { createClient } from '@/utils/supabase/server'
+import { auth } from '@/lib/auth'
+import { db } from '@/lib/auth'
+import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 
 export default async function AuditLogsPage() {
-    const supabase = await createClient()
+    const session = await auth.api.getSession({
+        headers: await headers()
+    })
 
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = session?.user
 
     if (!user) {
         redirect('/login')
     }
 
     // Check role
-    const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .single()
+    let role = 'USER'
+    try {
+        const profileResult = await db.query('SELECT role FROM profiles WHERE id = $1', [user.id])
+        if (profileResult.rows.length > 0) {
+            role = profileResult.rows[0].role
+        }
+    } catch (e) {
+        console.error("Failed to fetch profile", e)
+    }
 
-    if (profile?.role !== 'ADMIN') {
+    if (role !== 'ADMIN') {
         redirect('/')
     }
 
     // Fetch logs
-    const { data: logs } = await supabase
-        .from('audit_logs')
-        .select('*')
-        .order('timestamp', { ascending: false })
-        .limit(100)
+    let logs: any[] = []
+    try {
+        const logsResult = await db.query('SELECT * FROM audit_logs ORDER BY timestamp DESC LIMIT 100')
+        logs = logsResult.rows
+    } catch (e) {
+        console.error("Failed to fetch logs", e)
+        // Ensure logs is empty array
+    }
 
     return (
         <div className="min-h-screen bg-gray-100 p-8">

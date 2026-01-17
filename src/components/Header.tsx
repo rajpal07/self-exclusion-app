@@ -1,6 +1,6 @@
 'use client'
 
-import { createClient } from '@/utils/supabase/client'
+import { authClient } from '@/lib/auth-client'
 import { useRouter } from 'next/navigation'
 import { LogOut, Shield, FileText } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -8,10 +8,9 @@ import { Badge } from '@/components/ui/badge'
 
 export default function Header({ userEmail, role }: { userEmail: string, role: string }) {
     const router = useRouter()
-    const supabase = createClient()
 
     const handleLogout = async () => {
-        await supabase.auth.signOut()
+        await authClient.signOut()
         router.push('/login')
         router.refresh()
     }
