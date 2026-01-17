@@ -165,52 +165,64 @@ export default function SearchForm() {
 
                 {searched && (
                     <div className="flex-1 space-y-3">
-                        {/* Status 1: Exclusion Check */}
-                        <div className={`flex items-start gap-2 text-sm rounded-md p-3 ${result && new Date(result.expiry_date) >= new Date()
-                                ? 'bg-red-50 text-red-800 border border-red-200'
-                                : 'bg-green-50 text-green-800 border border-green-200'
-                            }`}>
-                            {result ? (
-                                new Date(result.expiry_date) >= new Date()
-                                    ? <XCircle className="h-5 w-5 flex-shrink-0 text-red-600" />
-                                    : <CheckCircle className="h-5 w-5 flex-shrink-0 text-green-600" />
-                            ) : (
-                                <CheckCircle className="h-5 w-5 flex-shrink-0 text-green-600" />
-                            )}
-                            <div className="flex-1">
-                                <p className="font-bold">
-                                    {result
-                                        ? (new Date(result.expiry_date) >= new Date() ? 'Patron Excluded' : 'Past Exclusion (Expired)')
-                                        : 'Not on Exclusion List'
-                                    }
-                                </p>
-                                {result && (
-                                    <div className="mt-1 text-xs space-y-0.5 opacity-90">
-                                        <p><span className="font-semibold">ID:</span> {result.patron_id}</p>
-                                        <p><span className="font-semibold">Name:</span> {result.name}</p>
-                                        <p><span className="font-semibold">Expiry:</span> {result.expiry_date}</p>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
+                        {/* 
+                            Logic Check: Use String Comparison for reliability
+                            Today (UTC ISO) vs Expiry (ISO YYYY-MM-DD)
+                        */}
+                        {(() => {
+                            const today = new Date().toISOString().split('T')[0]
+                            const isExcluded = result && result.expiry_date >= today
 
-                        {/* Status 2: Age Check */}
-                        <div className={`flex items-start gap-2 text-sm rounded-md p-3 ${ageVerified === false ? 'bg-red-50 text-red-800 border border-red-200' : 'bg-green-50 text-green-800 border border-green-200'
-                            }`}>
-                            {ageVerified === false ? (
-                                <XCircle className="h-5 w-5 flex-shrink-0 text-red-600" />
-                            ) : (
-                                <CheckCircle className="h-5 w-5 flex-shrink-0 text-green-600" />
-                            )}
-                            <div className="flex-1">
-                                <p className="font-bold">
-                                    {ageVerified === true ? 'Age Verified: 18+' : 'Under 18 / Verification Failed'}
-                                </p>
-                                <p className="text-xs opacity-90 mt-0.5">
-                                    {ageVerified === true ? 'Allowed to enter (if not excluded)' : 'Entry Denied due to Age'}
-                                </p>
-                            </div>
-                        </div>
+                            return (
+                                <>
+                                    {/* Status 1: Exclusion Check */}
+                                    <div className={`flex items-start gap-2 text-sm rounded-md p-3 ${isExcluded ? 'bg-red-50 text-red-800 border border-red-200' : 'bg-green-50 text-green-800 border border-green-200'
+                                        }`}>
+                                        {isExcluded ? (
+                                            <XCircle className="h-5 w-5 flex-shrink-0 text-red-600" />
+                                        ) : (
+                                            <CheckCircle className="h-5 w-5 flex-shrink-0 text-green-600" />
+                                        )}
+                                        <div className="flex-1">
+                                            <p className="font-bold">
+                                                {result && isExcluded
+                                                    ? 'Patron Excluded'
+                                                    : result
+                                                        ? 'Past Exclusion (Expired)'
+                                                        : 'Not on Exclusion List'
+                                                }
+                                            </p>
+                                            {result && (
+                                                <div className="mt-1 text-xs space-y-0.5 opacity-90">
+                                                    <p><span className="font-semibold">ID:</span> {result.patron_id}</p>
+                                                    <p><span className="font-semibold">Name:</span> {result.name}</p>
+                                                    <p><span className="font-semibold">Expiry:</span> {result.expiry_date}</p>
+                                                    {!isExcluded && <p className="font-bold text-green-700">(Allowed: Expiry date passed)</p>}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Status 2: Age Check */}
+                                    <div className={`flex items-start gap-2 text-sm rounded-md p-3 ${ageVerified === false ? 'bg-red-50 text-red-800 border border-red-200' : 'bg-green-50 text-green-800 border border-green-200'
+                                        }`}>
+                                        {ageVerified === false ? (
+                                            <XCircle className="h-5 w-5 flex-shrink-0 text-red-600" />
+                                        ) : (
+                                            <CheckCircle className="h-5 w-5 flex-shrink-0 text-green-600" />
+                                        )}
+                                        <div className="flex-1">
+                                            <p className="font-bold">
+                                                {ageVerified === true ? 'Age Verified: 18+' : 'Under 18 / Verification Failed'}
+                                            </p>
+                                            <p className="text-xs opacity-90 mt-0.5">
+                                                {ageVerified === true ? 'Allowed to enter (if not excluded)' : 'Entry Denied due to Age'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </>
+                            )
+                        })()}
                     </div>
                 )}
             </CardContent>
