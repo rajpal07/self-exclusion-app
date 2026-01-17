@@ -39,7 +39,12 @@ export default async function Dashboard() {
   let exclusions: any[] = []
   try {
     const exclusionsResult = await db.query('SELECT * FROM excluded_persons ORDER BY added_date DESC')
-    exclusions = exclusionsResult.rows
+    exclusions = exclusionsResult.rows.map(row => ({
+      ...row,
+      dob: new Date(row.dob).toISOString().split('T')[0],
+      expiry_date: new Date(row.expiry_date).toISOString().split('T')[0],
+      added_date: new Date(row.added_date).toISOString().split('T')[0]
+    }))
   } catch (e) {
     console.error("Failed to fetch exclusions", e)
   }
