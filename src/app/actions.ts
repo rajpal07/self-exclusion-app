@@ -58,7 +58,12 @@ export async function searchPatron(name: string, dob: string) {
             [name, dob]
         )
 
-        const data = result.rows[0] || null
+        const data = result.rows[0] ? {
+            ...result.rows[0],
+            dob: new Date(result.rows[0].dob).toISOString().split('T')[0],
+            expiry_date: new Date(result.rows[0].expiry_date).toISOString().split('T')[0],
+            added_date: new Date(result.rows[0].added_date).toISOString().split('T')[0]
+        } : null
 
         // Audit Log
         if (session.user.id) {
