@@ -64,7 +64,7 @@ export async function searchPatron(name: string, dob: string) {
 
     try {
         const result = await db.query(
-            'SELECT * FROM excluded_persons WHERE name ILIKE $1 AND dob = $2 LIMIT 1',
+            'SELECT * FROM excluded_persons WHERE name ILIKE $1 AND dob = $2 ORDER BY expiry_date DESC LIMIT 1',
             [name, dob]
         )
 

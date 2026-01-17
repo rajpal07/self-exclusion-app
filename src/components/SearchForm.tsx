@@ -166,15 +166,24 @@ export default function SearchForm() {
                 {searched && (
                     <div className="flex-1 space-y-3">
                         {/* Status 1: Exclusion Check */}
-                        <div className={`flex items-start gap-2 text-sm rounded-md p-3 ${result ? 'bg-red-50 text-red-800 border border-red-200' : 'bg-green-50 text-green-800 border border-green-200'
+                        <div className={`flex items-start gap-2 text-sm rounded-md p-3 ${result && new Date(result.expiry_date) >= new Date()
+                                ? 'bg-red-50 text-red-800 border border-red-200'
+                                : 'bg-green-50 text-green-800 border border-green-200'
                             }`}>
                             {result ? (
-                                <XCircle className="h-5 w-5 flex-shrink-0 text-red-600" />
+                                new Date(result.expiry_date) >= new Date()
+                                    ? <XCircle className="h-5 w-5 flex-shrink-0 text-red-600" />
+                                    : <CheckCircle className="h-5 w-5 flex-shrink-0 text-green-600" />
                             ) : (
                                 <CheckCircle className="h-5 w-5 flex-shrink-0 text-green-600" />
                             )}
                             <div className="flex-1">
-                                <p className="font-bold">{result ? 'Patron Excluded' : 'Not on Exclusion List'}</p>
+                                <p className="font-bold">
+                                    {result
+                                        ? (new Date(result.expiry_date) >= new Date() ? 'Patron Excluded' : 'Past Exclusion (Expired)')
+                                        : 'Not on Exclusion List'
+                                    }
+                                </p>
                                 {result && (
                                     <div className="mt-1 text-xs space-y-0.5 opacity-90">
                                         <p><span className="font-semibold">ID:</span> {result.patron_id}</p>
